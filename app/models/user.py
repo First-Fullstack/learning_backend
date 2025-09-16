@@ -11,17 +11,16 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_superuser = Column(Boolean, default=False, nullable=False)
+    password_hash = Column(String(255), nullable=False)
     avatar_url = Column(String(1024), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    email_verified = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
 
     # relationships
-    progresses = relationship("CourseProgress", back_populates="user")
-    quiz_attempts = relationship("QuizAttempt", back_populates="user")
-    subscriptions = relationship("Subscription", back_populates="user")
+    subscriptions = relationship("UserSubscription", back_populates="user")

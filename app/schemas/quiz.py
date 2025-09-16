@@ -2,40 +2,32 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 
-class QuizOptionBase(BaseModel):
-    text: str
+class QuizQuestionOptionCreate(BaseModel):
+    option_text: str
     is_correct: bool = False
+    sort_order: int = 0
 
 
-class QuizOptionCreate(QuizOptionBase):
-    pass
+class QuizQuestionCreate(BaseModel):
+    question_text: str
+    question_type: str = "multiple_choice"
+    sort_order: int = 0
+    options: List[QuizQuestionOptionCreate]
 
 
-class QuizOptionOut(QuizOptionBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-
-class QuizBase(BaseModel):
+class QuizCreate(BaseModel):
     course_id: int
-    question: str
-    is_active: bool = True
+    title: str
+    description: Optional[str] = None
+    time_limit_minutes: int = 0
+    passing_score_percentage: int = 0
+    status: str = "active"
+    questions: List[QuizQuestionCreate]
 
 
-class QuizCreate(QuizBase):
-    options: List[QuizOptionCreate]
-
-
-class QuizUpdate(BaseModel):
-    question: Optional[str] = None
-    is_active: Optional[bool] = None
-
-
-class QuizOut(QuizBase):
+class QuizOut(BaseModel):
     id: int
-    options: List[QuizOptionOut]
+    title: str
 
     class Config:
         from_attributes = True
@@ -43,11 +35,10 @@ class QuizOut(QuizBase):
 
 class QuizAttemptCreate(BaseModel):
     quiz_id: int
-    selected_option_id: int
+    answers: List[dict]
 
 
 class QuizAttemptOut(BaseModel):
     id: int
-    quiz_id: int
-    selected_option_id: int
-    is_correct: bool
+    score: int
+    is_passed: bool

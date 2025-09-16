@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Database
     postgres_server: str = "localhost"
     postgres_user: str = "postgres"
-    postgres_password: str = "postgres"
+    postgres_password: str = "123456"
     postgres_db: str = "learning"
     database_url: str | None = None
 

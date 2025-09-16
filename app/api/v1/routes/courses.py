@@ -1,16 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.db.deps import get_db
 from app.api.v1.routes.auth import get_current_user
 from app.models.user import User
-from app.models.course import Course, Category, CourseProgress, PublishStatus, DifficultyLevel
+from app.models.course import Course, CourseCategory, UserCourseProgress, PublishStatus, DifficultyLevel
 from app.schemas.course import (
     CourseCreate,
     CourseUpdate,
     CourseOut,
-    CourseFilter,
     CategoryCreate,
     CategoryOut,
     CourseProgressOut,
@@ -43,7 +42,7 @@ def list_courses(
     if is_premium is not None:
         q = q.filter(Course.is_premium == is_premium)
     q = q.filter(Course.status != PublishStatus.archived)
-    return q.order_by(Course.id.desc()).all()
+    return q.order_by(Course.sort_order.asc(), Course.id.desc()).all()
 
 
 @router.get("/{course_id}")
@@ -52,11 +51,15 @@ def get_course(course_id: int, db: Session = Depends(get_db), current_user: User
     if not course or course.status == PublishStatus.archived:
         raise HTTPException(status_code=404, detail="Course not found")
     progress = (
-        db.query(CourseProgress)
-        .filter(CourseProgress.user_id == current_user.id, CourseProgress.course_id == course.id)
+        db.query(UserCourseProgress)
+        .filter(UserCourseProgress.user_id == current_user.id, UserCourseProgress.course_id == course.id)
         .first()
     )
-    progress_out = CourseProgressOut(course_id=course.id, completion_rate=progress.completion_rate) if progress else None
+    progress_out = (
+        CourseProgressOut(course_id=course.id, completion_rate=progress.progress_percentage)
+        if progress
+        else None
+    )
     return {"course": CourseOut.model_validate(course), "progress": progress_out}
 
 
@@ -97,10 +100,10 @@ def set_status(course_id: int, status_value: PublishStatus, db: Session = Depend
 
 @router.post("/categories", response_model=CategoryOut, status_code=201)
 def create_category(cat: CategoryCreate, db: Session = Depends(get_db)):
-    existing = db.query(Category).filter(Category.name == cat.name).first()
+    existing = db.query(CourseCategory).filter(CourseCategory.name == cat.name).first()
     if existing:
         return existing
-    c = Category(name=cat.name)
+    c = CourseCategory(name=cat.name)
     db.add(c)
     db.commit()
     db.refresh(c)
@@ -109,4 +112,4 @@ def create_category(cat: CategoryCreate, db: Session = Depends(get_db)):
 
 @router.get("/categories", response_model=List[CategoryOut])
 def list_categories(db: Session = Depends(get_db)):
-    return db.query(Category).order_by(Category.name.asc()).all()
+    return db.query(CourseCategory).order_by(CourseCategory.sort_order.asc(), CourseCategory.name.asc()).all()

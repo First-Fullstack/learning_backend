@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.api.v1.routes import auth as auth_routes
 
 app = FastAPI(title="Learning Platform API", version="1.0.0")
 
@@ -19,4 +20,8 @@ app.add_middleware(
 async def health_check():
     return {"status": "ok"}
 
+# Versioned API
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+# Backwards-compatible root auth routes
+app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])

@@ -1,7 +1,13 @@
 from app.db.base import Base
 
-# Import models so Alembic/metadata can discover them
 from app.models.user import User  # noqa: F401
-from app.models.course import Category, Course, CourseProgress  # noqa: F401
-from app.models.quiz import Quiz, QuizOption, QuizAttempt  # noqa: F401
-from app.models.subscription import Subscription, Purchase  # noqa: F401
+from app.models.subscription_plan import SubscriptionPlan, UserSubscription  # noqa: F401
+from app.models.course import (
+    CourseCategory,
+    Course,
+    CourseVideo,
+    UserCourseProgress,
+    UserVideoProgress,
+)  # noqa: F401
+from app.models.quiz import Quiz, QuizQuestion, QuizQuestionOption, UserQuizAttempt, UserQuizAnswer  # noqa: F401
+from app.models.purchase import CoursePurchase, UserAchievement, Notification  # noqa: F401

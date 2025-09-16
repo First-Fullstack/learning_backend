@@ -1,54 +1,48 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 
 from app.db.deps import get_db
 from app.api.v1.routes.auth import get_current_user
 from app.models.user import User
-from app.models.quiz import Quiz, QuizOption, QuizAttempt
-from app.schemas.quiz import QuizCreate, QuizUpdate, QuizOut, QuizAttemptCreate, QuizAttemptOut
+from app.models.quiz import Quiz, QuizQuestion, QuizQuestionOption, UserQuizAttempt, UserQuizAnswer
+from app.schemas.quiz import QuizCreate, QuizOut, QuizAttemptCreate, QuizAttemptOut
 
 router = APIRouter()
 
 
 @router.post("/", response_model=QuizOut, status_code=201)
 def create_quiz(data: QuizCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    quiz = Quiz(course_id=data.course_id, question=data.question, is_active=data.is_active)
+    quiz = Quiz(
+        course_id=data.course_id,
+        title=data.title,
+        description=data.description,
+        time_limit_minutes=data.time_limit_minutes,
+        passing_score_percentage=data.passing_score_percentage,
+        status=data.status,
+    )
     db.add(quiz)
     db.flush()
-    for opt in data.options:
-        db.add(QuizOption(quiz_id=quiz.id, text=opt.text, is_correct=opt.is_correct))
+    for q in data.questions:
+        qq = QuizQuestion(
+            quiz_id=quiz.id,
+            question_text=q.question_text,
+            question_type=q.question_type,
+            sort_order=q.sort_order,
+        )
+        db.add(qq)
+        db.flush()
+        for o in q.options:
+            db.add(
+                QuizQuestionOption(
+                    question_id=qq.id,
+                    option_text=o.option_text,
+                    is_correct=o.is_correct,
+                    sort_order=o.sort_order,
+                )
+            )
     db.commit()
     db.refresh(quiz)
     return quiz
-
-
-@router.put("/{quiz_id}", response_model=QuizOut)
-def update_quiz(quiz_id: int, update: QuizUpdate, db: Session = Depends(get_db)):
-    quiz = db.get(Quiz, quiz_id)
-    if not quiz:
-        raise HTTPException(status_code=404, detail="Quiz not found")
-    data = update.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(quiz, k, v)
-    db.commit()
-    db.refresh(quiz)
-    return quiz
-
-
-@router.delete("/{quiz_id}")
-def delete_quiz(quiz_id: int, db: Session = Depends(get_db)):
-    quiz = db.get(Quiz, quiz_id)
-    if not quiz:
-        raise HTTPException(status_code=404, detail="Quiz not found")
-    quiz.is_active = False
-    db.commit()
-    return {"status": "disabled"}
-
-
-@router.get("/", response_model=List[QuizOut])
-def list_quizzes(course_id: int, db: Session = Depends(get_db)):
-    return db.query(Quiz).filter(Quiz.course_id == course_id, Quiz.is_active == True).all()
 
 
 @router.post("/attempt", response_model=QuizAttemptOut)
@@ -58,18 +52,43 @@ def attempt_quiz(
     current_user: User = Depends(get_current_user),
 ):
     quiz = db.get(Quiz, attempt.quiz_id)
-    option = db.get(QuizOption, attempt.selected_option_id)
-    if not quiz or not option or option.quiz_id != quiz.id:
-        raise HTTPException(status_code=400, detail="Invalid quiz/option")
-    is_correct = option.is_correct
-    rec = QuizAttempt(
+    if not quiz or quiz.status != "active":
+        raise HTTPException(status_code=400, detail="Invalid quiz")
+
+    # Compute score
+    total_questions = db.query(QuizQuestion).filter(QuizQuestion.quiz_id == quiz.id).count()
+    correct = 0
+    answers = []
+    for ans in attempt.answers:
+        question_id = ans.get("question_id")
+        selected_option_id = ans.get("selected_option_id")
+        option = db.get(QuizQuestionOption, selected_option_id)
+        if option and option.question_id == question_id and option.is_correct:
+            correct += 1
+        answers.append((question_id, selected_option_id, bool(option and option.is_correct)))
+
+    score_pct = int((correct / total_questions) * 100) if total_questions else 0
+    is_passed = score_pct >= quiz.passing_score_percentage
+
+    rec = UserQuizAttempt(
         user_id=current_user.id,
-        course_id=quiz.course_id,
         quiz_id=quiz.id,
-        selected_option_id=option.id,
-        is_correct=is_correct,
+        score=score_pct,
+        total_questions=total_questions,
+        correct_answers=correct,
+        is_passed=is_passed,
     )
     db.add(rec)
+    db.flush()
+    for qid, oid, is_correct in answers:
+        db.add(
+            UserQuizAnswer(
+                attempt_id=rec.id,
+                question_id=qid,
+                selected_option_id=oid,
+                is_correct=is_correct,
+            )
+        )
     db.commit()
     db.refresh(rec)
-    return rec
+    return QuizAttemptOut(id=rec.id, score=rec.score, is_passed=rec.is_passed)

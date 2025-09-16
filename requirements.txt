@@ -7,3 +7,4 @@ python-multipart
 pydantic-settings
 boto3
 stripe
+email-validator 

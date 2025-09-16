@@ -8,5 +8,7 @@ def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
+        print("Database connection opened")
     finally:
         db.close()
+        print("Database connection closed")
