@@ -6,7 +6,8 @@ from app.db.deps import get_db
 from app.api.v1.routes.auth import get_current_user
 from app.models.user import User
 from app.models.course import UserCourseProgress
-from app.schemas.user import UserOut, UserUpdate
+from app.schemas.user import UserOut, UserUpdate, UpdatePassword
+from app.core.security import verify_password, get_password_hash
 
 router = APIRouter()
 
@@ -54,6 +55,22 @@ async def update_avatar(
 
     # Return only avatar_url
     return {"avatar_url": current_user.avatar_url}
+
+@router.put("/password")
+def update_password(
+    payload: UpdatePassword,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Verify current password
+    if not verify_password(payload.current_password, current_user.password_hash):
+        return {"error": "Current password is incorrect."}, 400
+    # Update to new password
+    current_user.password_hash = get_password_hash(payload.new_password)
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return {"message": "Password updated successfully."}
 
 @router.get("/me/stats")
 def my_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

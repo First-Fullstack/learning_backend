@@ -40,6 +40,10 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
 
+class UpdatePassword(BaseModel):
+    current_password: str
+    new_password: str
+
 # --- New wrapper for the register/login response ---
 class AuthResponse(BaseModel):
     user: UserOut          # nested user info
