@@ -10,12 +10,12 @@ from app.schemas.user import UserOut, UserUpdate
 router = APIRouter()
 
 
-@router.get("/me", response_model=UserOut)
+@router.get("/profile", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.put("/me", response_model=UserOut)
+@router.put("/profile", response_model=UserOut)
 def update_me(
     update: UserUpdate,
     db: Session = Depends(get_db),
@@ -32,6 +32,22 @@ def update_me(
     db.refresh(current_user)
     return current_user
 
+@router.put("/avatar", response_model=UserOut)
+def update_me(
+    update: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if update.name is not None:
+        current_user.name = update.name
+    if update.email is not None:
+        current_user.email = update.email
+    if update.avatar_url is not None:
+        current_user.avatar_url = str(update.avatar_url)
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 @router.get("/me/stats")
 def my_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

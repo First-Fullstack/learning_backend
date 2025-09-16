@@ -1,3 +1,4 @@
+import email
 from pydantic import BaseModel, HttpUrl
 from typing import Optional
 from datetime import datetime
@@ -32,6 +33,13 @@ class UserOut(UserBase):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+class ResetPassword(BaseModel):
+    email: str
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
 
 # --- New wrapper for the register/login response ---
 class AuthResponse(BaseModel):

@@ -8,7 +8,7 @@ from jose import jwt, JWTError
 
 from app.db.deps import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, AuthResponse, Token, TokenPayload, LoginRequest
+from app.schemas.user import ResetPassword, UserCreate, AuthResponse, Token, TokenPayload, LoginRequest, PasswordResetConfirm
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.core.config import settings
 
@@ -78,12 +78,45 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/logout")
 def logout():
-    return {"message": "logged out"}
-
+    return {"message": "ログアウト成功"}
 
 @router.post("/password/reset")
-def password_reset_request(email: str):
+def password_reset_request(payload: ResetPassword):
     return {"message": "If the email exists, a reset link was sent."}
+
+# @router.post("/password/reset/confirm", status_code=200)
+# def reset_password_confirm(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
+#     reset_entry = (
+#         db.query(PasswordResetToken)
+#         .filter(
+#             PasswordResetToken.token == payload.token,
+#             PasswordResetToken.expires_at > datetime.now(timezone.utc),
+#             PasswordResetToken.used == False
+#         )
+#         .first()
+#     )
+#     if not reset_entry:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Invalid or expired reset token"
+#         )
+
+#     # 2. Fetch the user
+#     user = db.query(User).filter(User.id == reset_entry.user_id).first()
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+
+#     # 3. Update password
+#     user.password_hash = get_password_hash(payload.new_password)
+#     user.updated_at = datetime.now(timezone.utc)
+
+#     # 4. Mark token as used
+#     reset_entry.used = True
+
+#     db.commit()
+
+#     return {"message": "Password successfully reset"}
+
 
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(reuseable_oauth2)) -> User:
     try:
