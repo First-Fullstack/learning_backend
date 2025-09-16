@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+import os
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
@@ -25,29 +26,34 @@ def update_me(
         current_user.name = update.name
     if update.email is not None:
         current_user.email = update.email
-    if update.avatar_url is not None:
-        current_user.avatar_url = str(update.avatar_url)
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
     return current_user
 
-@router.put("/avatar", response_model=UserOut)
-def update_me(
-    update: UserUpdate,
+
+@router.post("/avatar")
+async def update_avatar(
+    avatar: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if update.name is not None:
-        current_user.name = update.name
-    if update.email is not None:
-        current_user.email = update.email
-    if update.avatar_url is not None:
-        current_user.avatar_url = str(update.avatar_url)
-    db.add(current_user)
+    # Ensure directory exists
+    upload_dir = "public/avatars"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Save uploaded file
+    file_location = f"{upload_dir}/{current_user.id}_{avatar.filename}"
+    with open(file_location, "wb") as f:
+        f.write(await avatar.read())  # async read
+
+    # Update DB column
+    current_user.avatar_url = f"/static/avatars/{current_user.id}_{avatar.filename}"
     db.commit()
     db.refresh(current_user)
-    return current_user
+
+    # Return only avatar_url
+    return {"avatar_url": current_user.avatar_url}
 
 @router.get("/me/stats")
 def my_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

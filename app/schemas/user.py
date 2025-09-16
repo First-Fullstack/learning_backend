@@ -16,12 +16,11 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
-    avatar_url: Optional[HttpUrl] = None
 
 class UserOut(UserBase):
     id: int
     is_active: bool
-    avatar_url: Optional[HttpUrl] = None
+    avatar_url: str | None = None
     created_at: datetime
     updated_at: datetime
     last_login_at: Optional[datetime] = None   # nullable in DB
