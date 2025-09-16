@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 
@@ -13,7 +14,7 @@ from app.core.config import settings
 
 router = APIRouter()
 
-reuseable_oauth2 = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+reuseable_oauth2 = OAuth2PasswordBearer(tokenUrl="/v1/auth/login")
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
@@ -65,8 +66,12 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="認証失敗"
         )
-    user.last_login_at = datetime.now(tz=timezone.utc)
+    db.execute(
+        text("UPDATE users SET last_login_at = :ts, email_verified = true WHERE id = :id"),
+        {"ts": datetime.now(tz=timezone.utc), "id": user.id},
+    )
     db.commit()
+    db.refresh(user)
     token = create_access_token(subject=str(user.id))
     return AuthResponse(user=user, token=token)
 

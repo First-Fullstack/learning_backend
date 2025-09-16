@@ -22,6 +22,3 @@ async def health_check():
 
 # Versioned API
 app.include_router(api_router, prefix=settings.api_v1_prefix)
-
-# Backwards-compatible root auth routes
-app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])

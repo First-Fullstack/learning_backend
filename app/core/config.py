@@ -5,7 +5,7 @@ import secrets
 
 
 class Settings(BaseSettings):
-    api_v1_prefix: str = "/api/v1"
+    api_v1_prefix: str = "/v1"
 
     # Security
     secret_key: str = secrets.token_urlsafe(32)
