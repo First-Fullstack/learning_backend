@@ -72,22 +72,21 @@ def update_password(
     db.refresh(current_user)
     return {"message": "Password updated successfully."}
 
-@router.get("/me/stats")
-def my_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.get("/progress")
+def my_progress(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     progresses = (
         db.query(UserCourseProgress)
         .filter(UserCourseProgress.user_id == current_user.id)
         .all()
     )
-    total_courses = len(progresses)
-    completed_courses = sum(1 for p in progresses if p.progress_percentage >= 100)
-    avg_completion = (
-        int(sum(p.progress_percentage for p in progresses) / total_courses)
-        if total_courses
-        else 0
-    )
-    return {
-        "total_courses": total_courses,
-        "completed_courses": completed_courses,
-        "average_completion_rate": avg_completion,
-    }
+    result = []
+    for p in progresses:
+        result.append({
+            "course_id": p.course_id,
+            "progress_percentage": p.progress_percentage,
+            "current_video_id": p.current_video_id,
+            "started_at": p.started_at.isoformat() if p.started_at else None,
+            "last_accessed_at": p.last_accessed_at.isoformat() if p.last_accessed_at else None,
+            "completed_at": p.completed_at.isoformat() if p.completed_at else None,
+        })
+    return result
