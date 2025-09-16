@@ -29,6 +29,9 @@ class UserOut(UserBase):
     class Config:
         from_attributes = True  # Pydantic v2 (use orm_mode=True for v1)
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 # --- New wrapper for the register/login response ---
 class AuthResponse(BaseModel):

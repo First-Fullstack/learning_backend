@@ -7,7 +7,7 @@ from jose import jwt, JWTError
 
 from app.db.deps import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, AuthResponse, Token, TokenPayload, UserOut
+from app.schemas.user import UserCreate, AuthResponse, Token, TokenPayload, LoginRequest
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.core.config import settings
 
@@ -57,15 +57,18 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)) -> AuthResponse
             }
         )
 
-@router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = authenticate_user(db, form_data.email, form_data.password)
+@router.post("/login", response_model=AuthResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = authenticate_user(db, payload.email, payload.password)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="認証失敗"
+        )
     user.last_login_at = datetime.now(tz=timezone.utc)
     db.commit()
     token = create_access_token(subject=str(user.id))
-    return Token(access_token=token)
+    return AuthResponse(user=user, token=token)
 
 
 @router.post("/logout")
@@ -76,7 +79,6 @@ def logout():
 @router.post("/password/reset")
 def password_reset_request(email: str):
     return {"message": "If the email exists, a reset link was sent."}
-
 
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(reuseable_oauth2)) -> User:
     try:
