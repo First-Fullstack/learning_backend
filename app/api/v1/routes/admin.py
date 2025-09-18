@@ -122,3 +122,16 @@ def update_user(
     db.commit()
     db.refresh(user)
     return user
+
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    """
+    Permanently remove a user record from the database.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.delete(user)    # 🗑 actually remove from DB
+    db.commit()
+    return None        # 204 No Content → no response body
