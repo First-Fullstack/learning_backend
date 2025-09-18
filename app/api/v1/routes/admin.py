@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Path, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
@@ -10,6 +10,7 @@ from app.models.course import Course
 from app.models.purchase import CoursePurchase
 from app.models.subscription_plan import UserSubscription
 from app.schemas.admin import UserListResponse, PaginationMeta
+from app.schemas.user import UserOut
 
 router = APIRouter()
 
@@ -84,3 +85,18 @@ def list_users(
             total_count=total_count,
         ),
     )
+
+@router.get("/users/{user_id}", response_model=UserOut)
+def get_user_detail(
+    user_id: int = Path(..., description="ユーザーID"),
+    db: Session = Depends(get_db),
+    # current_admin: User = Depends(get_current_admin_user),  # or your admin dependency
+):
+    """
+    管理者が特定ユーザーの詳細情報を取得します
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return user  # SQLAlchemy ORM object; FastAPI + Pydantic will serialize
