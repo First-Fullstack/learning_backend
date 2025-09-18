@@ -10,7 +10,7 @@ from app.models.course import Course
 from app.models.purchase import CoursePurchase
 from app.models.subscription_plan import UserSubscription
 from app.schemas.admin import UserListResponse, PaginationMeta
-from app.schemas.user import UserOut
+from app.schemas.user import UserOut, UserUpdate
 
 router = APIRouter()
 
@@ -100,3 +100,25 @@ def get_user_detail(
         raise HTTPException(status_code=404, detail="User not found")
 
     return user  # SQLAlchemy ORM object; FastAPI + Pydantic will serialize
+
+@router.put("/users/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: int,
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    # current_admin: User = Depends(get_current_admin)   # if you have admin auth
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if payload.name is not None:
+        user.name = payload.name
+    if payload.email is not None:
+        user.email = payload.email
+    if payload.is_active is not None:
+        user.is_active = payload.is_active
+
+    db.commit()
+    db.refresh(user)
+    return user

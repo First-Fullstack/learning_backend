@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
-from app.schemas.user import UserOut
+from app.schemas.user import UserOut, UserUpdate
 
 class PaginationMeta(BaseModel):
     current_page: int
