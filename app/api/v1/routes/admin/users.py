@@ -35,7 +35,7 @@ def stats(db: Session = Depends(get_db), current_user: User = Depends(get_curren
         "growth_rate": growth_rate,
     }
 
-@router.get("/users", response_model=UserListResponse)
+@router.get("/", response_model=UserListResponse)
 def list_users(
     search: Optional[str] = Query(None, description="検索キーワード"),
     status: Optional[str] = Query(
@@ -64,7 +64,8 @@ def list_users(
         elif status == "inactive":
             query = query.filter(User.is_active.is_(False))
         elif status == "cancelled":
-            query = query.filter(User.is_cancelled.is_(True))  # adjust if column exists
+            # Note: is_cancelled field doesn't exist in User model, using is_active=False as fallback
+            query = query.filter(User.is_active.is_(False))
 
     # Pagination
     total_count = query.count()
@@ -86,7 +87,7 @@ def list_users(
         ),
     )
 
-@router.get("/users/{user_id}", response_model=UserOut)
+@router.get("/{user_id}", response_model=UserOut)
 def get_user_detail(
     user_id: int = Path(..., description="ユーザーID"),
     db: Session = Depends(get_db),
@@ -101,7 +102,7 @@ def get_user_detail(
 
     return user  # SQLAlchemy ORM object; FastAPI + Pydantic will serialize
 
-@router.put("/users/{user_id}", response_model=UserOut)
+@router.put("/{user_id}", response_model=UserOut)
 def update_user(
     user_id: int,
     payload: UserUpdate,
@@ -123,7 +124,7 @@ def update_user(
     db.refresh(user)
     return user
 
-@router.delete("/users/{user_id}", status_code=204)
+@router.delete("/{user_id}", status_code=204)
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     """
     Permanently remove a user record from the database.

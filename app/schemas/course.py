@@ -1,5 +1,6 @@
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
+from datetime import datetime
 from app.models.course import DifficultyLevel, PublishStatus
 
 
@@ -46,6 +47,10 @@ class CourseUpdate(BaseModel):
 
 class CourseOut(CourseBase):
     id: int
+    category_name: Optional[str] = None
+    estimated_duration_minutes: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
