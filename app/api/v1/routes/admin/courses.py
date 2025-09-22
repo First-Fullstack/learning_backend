@@ -106,3 +106,15 @@ def update_course(course_id: int, course_in: CourseUpdate, db: Session = Depends
         course.category_name = None
 
     return course
+
+@router.delete("/{course_id}")
+def delete_course(course_id: int, db: Session = Depends(get_db)):
+    course = db.query(Course).filter(Course.id == course_id).first()
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    db.delete(course)
+    db.commit()
+
+    return {"message": f"Course with id {course_id} deleted successfully"}
