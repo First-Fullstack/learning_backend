@@ -44,7 +44,6 @@ class CourseUpdate(BaseModel):
     status: Optional[PublishStatus] = None
     category_id: Optional[int] = None
 
-
 class CourseOut(CourseBase):
     id: int
     category_name: Optional[str] = None
