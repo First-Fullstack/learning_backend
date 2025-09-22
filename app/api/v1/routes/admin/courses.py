@@ -54,3 +54,23 @@ def create_course(course_in: CourseCreate, db: Session = Depends(get_db)):
     course.category_name = category.name if category else None
 
     return course
+
+@router.get("/{course_id}", response_model=CourseOut)
+def get_course(course_id: int, db: Session = Depends(get_db)):
+    course = (
+        db.query(Course)
+        .filter(Course.id == course_id)
+        .first()
+    )
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    # Attach category name dynamically if relationship is not joined
+    if course.category_id:
+        category = db.query(CourseCategory).filter(CourseCategory.id == course.category_id).first()
+        course.category_name = category.name if category else None
+    else:
+        course.category_name = None
+
+    return course
