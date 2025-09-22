@@ -2,43 +2,74 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 
-class QuizQuestionOptionCreate(BaseModel):
+# ---------------------------
+# Option Schema
+# ---------------------------
+class OptionBase(BaseModel):
     option_text: str
-    is_correct: bool = False
-    sort_order: int = 0
+    is_correct: bool
 
 
-class QuizQuestionCreate(BaseModel):
-    question_text: str
-    question_type: str = "multiple_choice"
-    sort_order: int = 0
-    options: List[QuizQuestionOptionCreate]
+class OptionCreate(OptionBase):
+    pass
 
 
-class QuizCreate(BaseModel):
-    course_id: int
-    title: str
-    description: Optional[str] = None
-    time_limit_minutes: int = 0
-    passing_score_percentage: int = 0
-    status: str = "active"
-    questions: List[QuizQuestionCreate]
-
-
-class QuizOut(BaseModel):
+class OptionOut(OptionBase):
     id: int
-    title: str
 
     class Config:
         from_attributes = True
 
 
-class QuizAttemptCreate(BaseModel):
-    quiz_id: int
-    answers: List[dict]
+# ---------------------------
+# Question Schema
+# ---------------------------
+class QuestionBase(BaseModel):
+    question_text: str
+    question_type: str  # e.g., "multiple_choice", "true_false"
+    options: List[OptionCreate]
 
 
-class QuizAttemptOut(BaseModel):
+class QuestionCreate(QuestionBase):
+    pass
+
+
+class QuestionOut(BaseModel):
     id: int
-    score: int
-    is_passed: bool
+    question_text: str
+    question_type: str
+    options: List[OptionOut]
+
+    class Config:
+        from_attributes = True
+
+
+# ---------------------------
+# Quiz Schema
+# ---------------------------
+class QuizBase(BaseModel):
+    course_id: int
+    title: str
+    description: Optional[str] = None
+    time_limit_minutes: Optional[int] = None
+    passing_score_percentage: Optional[int] = None
+    status: str = "active"  # e.g., "active", "inactive"
+    questions: List[QuestionCreate]
+
+
+class QuizCreate(QuizBase):
+    pass
+
+
+class QuizOut(BaseModel):
+    id: int
+    course_id: int
+    title: str
+    description: Optional[str]
+    time_limit_minutes: Optional[int]
+    passing_score_percentage: Optional[int]
+    status: str
+    questions: List[QuestionOut]
+
+    class Config:
+        from_attributes = True
