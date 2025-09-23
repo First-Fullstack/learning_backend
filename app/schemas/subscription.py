@@ -46,3 +46,12 @@ class SubscribeIn(BaseModel):
 class SubscribeOut(BaseModel):
     subscription_id: str
     status: str
+
+
+class ChangePlanIn(BaseModel):
+    new_plan_id: int
+
+
+class ChangePlanOut(BaseModel):
+    subscription_id: str
+    status: str
