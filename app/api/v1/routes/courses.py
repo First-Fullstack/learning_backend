@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 
 from app.db.deps import get_db
 from app.api.v1.routes.auth import get_current_user
@@ -13,27 +14,23 @@ from app.schemas.course import (
     CategoryCreate,
     CategoryOut,
     CourseProgressOut,
+    CourseListResponse,
 )
 
 router = APIRouter()
 
 
-@router.post("/", response_model=CourseOut, status_code=201)
-def create_course(course_in: CourseCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    course = Course(**course_in.model_dump())
-    db.add(course)
-    db.commit()
-    db.refresh(course)
-    return course
-
-
-@router.get("/", response_model=List[CourseOut])
+@router.get("/", response_model=CourseListResponse)
 def list_courses(
     db: Session = Depends(get_db),
-    category_id: Optional[int] = None,
-    difficulty: Optional[DifficultyLevel] = None,
-    is_premium: Optional[bool] = None,
+    category_id: Optional[int] = Query(None, description="カテゴリでフィルタリング"),
+    difficulty: Optional[DifficultyLevel] = Query(None, description="難易度でフィルタリング"),
+    is_premium: Optional[bool] = Query(None, description="プレミアムコースでフィルタリング"),
+    page: int = Query(1, description="ページ番号", ge=1),
+    limit: int = Query(20, description="1ページあたりの件数", ge=1, le=100),
 ):
+    print(difficulty)
+    # Build base query with filters
     q = db.query(Course)
     if category_id is not None:
         q = q.filter(Course.category_id == category_id)
@@ -42,7 +39,23 @@ def list_courses(
     if is_premium is not None:
         q = q.filter(Course.is_premium == is_premium)
     q = q.filter(Course.status != PublishStatus.archived)
-    return q.order_by(Course.sort_order.asc(), Course.id.desc()).all()
+    
+    # Get total count for pagination
+    total_count = q.count()
+    
+    # Calculate pagination
+    offset = (page - 1) * limit
+    total_pages = (total_count + limit - 1) // limit  # Ceiling division
+    
+    # Apply pagination and ordering
+    courses = q.order_by(Course.sort_order.asc(), Course.id.desc()).offset(offset).limit(limit).all()
+    
+    return CourseListResponse(
+        courses=courses,
+        total_count=total_count,
+        current_page=page,
+        total_pages=total_pages
+    )
 
 
 @router.get("/{course_id}")

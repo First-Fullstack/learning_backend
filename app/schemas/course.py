@@ -64,3 +64,9 @@ class CourseFilter(BaseModel):
 class CourseProgressOut(BaseModel):
     course_id: int
     completion_rate: int
+
+class CourseListResponse(BaseModel):
+    courses: List[CourseOut]
+    total_count: int
+    current_page: int
+    total_pages: int
