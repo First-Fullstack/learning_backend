@@ -21,6 +21,26 @@ class QuizAttemptOut(BaseModel):
     is_passed: bool
 
 # ---------------------------
+# Submission Schemas (used by quizzes submit route)
+# ---------------------------
+class QuestionResultOut(BaseModel):
+    question_id: int
+    is_correct: bool
+    correct_answer: int
+
+
+class QuizSubmissionIn(BaseModel):
+    answers: List[AnswerIn]
+
+
+class QuizSubmissionOut(BaseModel):
+    score: int
+    total_questions: int
+    correct_answers: int
+    is_passed: bool
+    results: List[QuestionResultOut]
+
+# ---------------------------
 # Option Schema
 # ---------------------------
 class OptionBase(BaseModel):
