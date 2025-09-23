@@ -15,26 +15,6 @@ from app.schemas.user import UserOut, UserUpdate
 router = APIRouter()
 
 
-@router.get("/stats")
-def stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    users_count = db.query(func.count(User.id)).scalar() or 0
-    courses_count = db.query(func.count(Course.id)).scalar() or 0
-    sales = db.query(func.coalesce(func.sum(CoursePurchase.amount), 0)).scalar() or 0
-    active_subs = (
-        db.query(func.count(UserSubscription.id))
-        .filter(UserSubscription.status == "active")
-        .scalar()
-        or 0
-    )
-    growth_rate = 0
-    return {
-        "users": users_count,
-        "courses": courses_count,
-        "sales": float(sales),
-        "active_subscriptions": active_subs,
-        "growth_rate": growth_rate,
-    }
-
 @router.get("/", response_model=UserListResponse)
 def list_users(
     search: Optional[str] = Query(None, description="検索キーワード"),

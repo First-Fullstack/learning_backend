@@ -11,3 +11,11 @@ class PaginationMeta(BaseModel):
 class UserListResponse(BaseModel):
     users: List[UserOut]
     pagination: PaginationMeta
+
+
+class AdminDashboardOut(BaseModel):
+    total_users: int
+    total_courses: int
+    active_subscriptions: int
+    total_revenue: int
+    monthly_growth: float
