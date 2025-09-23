@@ -1,19 +1,28 @@
 from pydantic import BaseModel
-from typing import Optional
-from app.models.subscription import PlanType
+from typing import Optional, List
 
 
-class SubscriptionCreate(BaseModel):
-    plan: PlanType
-
-
-class SubscriptionOut(BaseModel):
+class SubscriptionPlanOut(BaseModel):
     id: int
-    plan: PlanType
+    name: str
+    description: Optional[str] = None
+    price_monthly: int
+    price_yearly: int
+    features: List[str]
     is_active: bool
 
     class Config:
         from_attributes = True
+
+
+class SubscriptionCreate(BaseModel):
+    plan_id: int
+
+
+class SubscriptionOut(BaseModel):
+    id: int
+    plan_id: int
+    status: str
 
 
 class PurchaseCreate(BaseModel):
