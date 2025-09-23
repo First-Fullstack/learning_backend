@@ -79,6 +79,16 @@ class QuizCreate(QuizBase):
     pass
 
 
+class QuizUpdate(BaseModel):
+    course_id: Optional[int] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    time_limit_minutes: Optional[int] = None
+    passing_score_percentage: Optional[int] = None
+    status: Optional[str] = None
+    questions: Optional[List[QuestionCreate]] = None
+
+
 class QuizOut(BaseModel):
     id: int
     course_id: int
