@@ -101,3 +101,7 @@ class QuizOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class QuizDeleteResponse(BaseModel):
+    message: str

@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.deps import get_db
 from app.models.quiz import Quiz, QuizQuestion, QuizQuestionOption
-from app.schemas.quiz import QuizCreate, QuizOut, QuizUpdate
+from app.schemas.quiz import QuizCreate, QuizOut, QuizUpdate, QuizDeleteResponse
 
 router = APIRouter()
 
@@ -105,3 +105,19 @@ def update_quiz(
     )
     
     return quiz
+
+@router.delete("/{quiz_id}", response_model=QuizDeleteResponse, summary="クイズ削除（管理者用）")
+def delete_quiz(
+    quiz_id: int = Path(..., description="クイズID"),
+    db: Session = Depends(get_db)
+):
+    # Check if quiz exists
+    quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+    if not quiz:
+        raise HTTPException(status_code=404, detail="クイズが見つかりません")
+    
+    # Delete quiz (cascade will handle questions and options due to relationships)
+    db.delete(quiz)
+    db.commit()
+
+    return QuizDeleteResponse(message="クイズ削除成功")
