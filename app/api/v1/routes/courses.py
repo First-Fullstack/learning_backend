@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 from datetime import datetime
 
@@ -20,6 +20,8 @@ from app.schemas.course import (
     UserProgressOut,
     CourseProgressUpdateIn,
 )
+from app.models.quiz import Quiz, QuizQuestion
+from app.schemas.quiz import QuizOut
 
 router = APIRouter()
 
@@ -182,3 +184,16 @@ def update_progress(
         last_accessed_at=progress.last_accessed_at,
         completed_at=progress.completed_at,
     )
+
+@router.get("/{course_id}/quiz", response_model=QuizOut)
+def get_course_quiz(course_id: int, db: Session = Depends(get_db)):
+    quiz = (
+        db.query(Quiz)
+        .options(selectinload(Quiz.questions).selectinload(QuizQuestion.options))
+        .filter(Quiz.course_id == course_id, Quiz.status == "active")
+        .order_by(Quiz.id.asc())
+        .first()
+    )
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found for course")
+    return quiz
