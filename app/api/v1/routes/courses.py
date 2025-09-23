@@ -15,6 +15,8 @@ from app.schemas.course import (
     CategoryOut,
     CourseProgressOut,
     CourseListResponse,
+    CourseDetailOut,
+    UserProgressOut,
 )
 
 router = APIRouter()
@@ -57,23 +59,53 @@ def list_courses(
         total_pages=total_pages
     )
 
-
-@router.get("/{course_id}")
+@router.get("/{course_id}", response_model=CourseDetailOut)
 def get_course(course_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     course = db.get(Course, course_id)
     if not course or course.status == PublishStatus.archived:
         raise HTTPException(status_code=404, detail="Course not found")
+
+    # Resolve category name if present
+    category_name: Optional[str] = None
+    if course.category_id:
+        category = db.query(CourseCategory).filter(CourseCategory.id == course.category_id).first()
+        category_name = category.name if category else None
+
+    # Fetch user progress
     progress = (
         db.query(UserCourseProgress)
         .filter(UserCourseProgress.user_id == current_user.id, UserCourseProgress.course_id == course.id)
         .first()
     )
-    progress_out = (
-        CourseProgressOut(course_id=course.id, completion_rate=progress.progress_percentage)
-        if progress
-        else None
+    user_progress: Optional[UserProgressOut] = None
+    if progress:
+        user_progress = UserProgressOut(
+            course_id=progress.course_id,
+            progress_percentage=progress.progress_percentage,
+            current_video_id=progress.current_video_id,
+            started_at=progress.started_at,
+            last_accessed_at=progress.last_accessed_at,
+            completed_at=progress.completed_at,
+        )
+
+    # Build response explicitly to inject category_name
+    base = CourseOut.model_validate(course)
+    return CourseDetailOut(
+        id=base.id,
+        title=base.title,
+        description=base.description,
+        difficulty=base.difficulty,
+        is_premium=base.is_premium,
+        video_url=base.video_url,
+        thumbnail_url=base.thumbnail_url,
+        status=base.status,
+        category_id=base.category_id,
+        category_name=category_name,
+        estimated_duration_minutes=base.estimated_duration_minutes,
+        created_at=base.created_at,
+        updated_at=base.updated_at,
+        user_progress=user_progress,
     )
-    return {"course": CourseOut.model_validate(course), "progress": progress_out}
 
 
 @router.put("/{course_id}", response_model=CourseOut)

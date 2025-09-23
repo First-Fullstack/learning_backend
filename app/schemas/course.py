@@ -65,6 +65,19 @@ class CourseProgressOut(BaseModel):
     course_id: int
     completion_rate: int
 
+
+class UserProgressOut(BaseModel):
+    course_id: int
+    progress_percentage: int
+    current_video_id: Optional[int] = None
+    started_at: datetime
+    last_accessed_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class CourseDetailOut(CourseOut):
+    user_progress: Optional[UserProgressOut] = None
+
 class CourseListResponse(BaseModel):
     courses: List[CourseOut]
     total_count: int
