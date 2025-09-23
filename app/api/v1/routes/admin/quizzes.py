@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.deps import get_db
 from app.models.quiz import Quiz, QuizQuestion, QuizQuestionOption
@@ -41,5 +41,13 @@ def create_quiz(quiz_in: QuizCreate, db: Session = Depends(get_db)):
             db.add(option)
 
     db.commit()
-    db.refresh(quiz)
+
+    # Reload with relationships for response serialization
+    quiz = (
+        db.query(Quiz)
+        .options(selectinload(Quiz.questions).selectinload(QuizQuestion.options))
+        .filter(Quiz.id == quiz.id)
+        .first()
+    )
+
     return quiz

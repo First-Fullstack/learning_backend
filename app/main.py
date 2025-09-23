@@ -7,6 +7,12 @@ from app.api.v1.routes import auth as auth_routes
 
 app = FastAPI(title="Learning Platform API", version="1.0.0")
 
+
+origins = [
+    "http://localhost:5173",
+    "localhost:5173"
+]
+
 # CORS
 app.add_middleware(
     CORSMiddleware,

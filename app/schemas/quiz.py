@@ -3,6 +3,24 @@ from typing import List, Optional
 
 
 # ---------------------------
+# Attempt Schemas (used by quizzes routes)
+# ---------------------------
+class AnswerIn(BaseModel):
+    question_id: int
+    selected_option_id: int
+
+
+class QuizAttemptCreate(BaseModel):
+    quiz_id: int
+    answers: List[AnswerIn]
+
+
+class QuizAttemptOut(BaseModel):
+    id: int
+    score: int
+    is_passed: bool
+
+# ---------------------------
 # Option Schema
 # ---------------------------
 class OptionBase(BaseModel):

@@ -18,6 +18,14 @@ class Quiz(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    # Relationships
+    questions = relationship(
+        "QuizQuestion",
+        back_populates="quiz",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
 
 class QuizQuestion(Base):
     __tablename__ = "quiz_questions"
@@ -30,6 +38,15 @@ class QuizQuestion(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    # Relationships
+    quiz = relationship("Quiz", back_populates="questions")
+    options = relationship(
+        "QuizQuestionOption",
+        back_populates="question",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
 
 class QuizQuestionOption(Base):
     __tablename__ = "quiz_question_options"
@@ -41,6 +58,9 @@ class QuizQuestionOption(Base):
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    question = relationship("QuizQuestion", back_populates="options")
 
 
 class UserQuizAttempt(Base):
