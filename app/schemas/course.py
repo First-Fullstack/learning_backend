@@ -78,6 +78,12 @@ class UserProgressOut(BaseModel):
 class CourseDetailOut(CourseOut):
     user_progress: Optional[UserProgressOut] = None
 
+
+class CourseProgressUpdateIn(BaseModel):
+    current_video_id: Optional[int] = None
+    watched_seconds: int
+    is_completed: bool
+
 class CourseListResponse(BaseModel):
     courses: List[CourseOut]
     total_count: int

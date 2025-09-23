@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -6,7 +7,7 @@ from datetime import datetime
 from app.db.deps import get_db
 from app.api.v1.routes.auth import get_current_user
 from app.models.user import User
-from app.models.course import Course, CourseCategory, UserCourseProgress, PublishStatus, DifficultyLevel
+from app.models.course import Course, CourseCategory, UserCourseProgress, PublishStatus, DifficultyLevel, CourseVideo
 from app.schemas.course import (
     CourseCreate,
     CourseUpdate,
@@ -17,6 +18,7 @@ from app.schemas.course import (
     CourseListResponse,
     CourseDetailOut,
     UserProgressOut,
+    CourseProgressUpdateIn,
 )
 
 router = APIRouter()
@@ -107,54 +109,76 @@ def get_course(course_id: int, db: Session = Depends(get_db), current_user: User
         user_progress=user_progress,
     )
 
-
-@router.put("/{course_id}", response_model=CourseOut)
-def update_course(course_id: int, update: CourseUpdate, db: Session = Depends(get_db)):
+@router.put("/{course_id}/progress", response_model=UserProgressOut)
+def update_progress(
+    course_id: int,
+    body: CourseProgressUpdateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Validate course
     course = db.get(Course, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    data = update.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(course, k, v)
-    db.add(course)
+
+    # Compute total duration seconds for the course
+    total_duration_seconds = (
+        db.query(func.coalesce(func.sum(CourseVideo.duration_seconds), 0)).filter(CourseVideo.course_id == course_id).scalar()
+    )
+    if total_duration_seconds <= 0:
+        # Avoid division by zero; treat as 0% when no videos/duration
+        computed_percentage = 0
+    else:
+        # Clamp watched_seconds to [0, total]
+        watched = max(0, min(body.watched_seconds, total_duration_seconds))
+        computed_percentage = int((watched / total_duration_seconds) * 100)
+        if body.is_completed:
+            computed_percentage = max(computed_percentage, 100)
+
+    # Upsert progress
+    progress = (
+        db.query(UserCourseProgress)
+        .filter(UserCourseProgress.user_id == current_user.id, UserCourseProgress.course_id == course_id)
+        .first()
+    )
+    now = datetime.utcnow()
+
+    # Validate current_video_id if provided; allow None/0 as null
+    validated_video_id = None
+    if body.current_video_id is not None and body.current_video_id != 0:
+        video = db.query(CourseVideo).filter(CourseVideo.id == body.current_video_id, CourseVideo.course_id == course_id).first()
+        if video:
+            validated_video_id = body.current_video_id
+        else:
+            # If invalid, silently ignore and store NULL to avoid FK errors
+            validated_video_id = None
+
+    if progress:
+        progress.current_video_id = validated_video_id
+        progress.progress_percentage = computed_percentage
+        progress.last_accessed_at = now
+        if body.is_completed:
+            progress.completed_at = now
+    else:
+        progress = UserCourseProgress(
+            user_id=current_user.id,
+            course_id=course_id,
+            current_video_id=validated_video_id,
+            progress_percentage=computed_percentage,
+            started_at=now,
+            last_accessed_at=now,
+            completed_at=now if body.is_completed else None,
+        )
+        db.add(progress)
+
     db.commit()
-    db.refresh(course)
-    return course
+    db.refresh(progress)
 
-
-@router.delete("/{course_id}")
-def archive_course(course_id: int, db: Session = Depends(get_db)):
-    course = db.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    course.status = PublishStatus.archived
-    db.add(course)
-    db.commit()
-    return {"status": "archived"}
-
-
-@router.patch("/{course_id}/status")
-def set_status(course_id: int, status_value: PublishStatus, db: Session = Depends(get_db)):
-    course = db.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    course.status = status_value
-    db.commit()
-    return {"status": course.status}
-
-
-@router.post("/categories", response_model=CategoryOut, status_code=201)
-def create_category(cat: CategoryCreate, db: Session = Depends(get_db)):
-    existing = db.query(CourseCategory).filter(CourseCategory.name == cat.name).first()
-    if existing:
-        return existing
-    c = CourseCategory(name=cat.name)
-    db.add(c)
-    db.commit()
-    db.refresh(c)
-    return c
-
-
-@router.get("/categories", response_model=List[CategoryOut])
-def list_categories(db: Session = Depends(get_db)):
-    return db.query(CourseCategory).order_by(CourseCategory.sort_order.asc(), CourseCategory.name.asc()).all()
+    return UserProgressOut(
+        course_id=progress.course_id,
+        progress_percentage=progress.progress_percentage,
+        current_video_id=progress.current_video_id,
+        started_at=progress.started_at,
+        last_accessed_at=progress.last_accessed_at,
+        completed_at=progress.completed_at,
+    )
