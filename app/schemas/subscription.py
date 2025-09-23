@@ -36,3 +36,13 @@ class PurchaseOut(BaseModel):
     course_id: int
     amount: float
     currency: str
+
+
+class SubscribeIn(BaseModel):
+    plan_id: int
+    payment_method_id: str
+
+
+class SubscribeOut(BaseModel):
+    subscription_id: str
+    status: str

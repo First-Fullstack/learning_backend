@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
 from app.api.v1.routes.auth import get_current_user
 from app.models.user import User
 from app.models.subscription_plan import SubscriptionPlan, UserSubscription
-from app.schemas.subscription import SubscriptionPlanOut
+from app.schemas.subscription import SubscriptionPlanOut, SubscribeIn, SubscribeOut
 
 router = APIRouter()
 
@@ -29,15 +29,19 @@ def list_plans(db: Session = Depends(get_db)):
             ]
     return plans
 
-@router.post("/subscribe")
-def subscribe(plan_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    plan = db.get(SubscriptionPlan, plan_id)
+@router.post("/subscribe", response_model=SubscribeOut)
+def subscribe(body: SubscribeIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    plan = db.get(SubscriptionPlan, body.plan_id)
     if not plan or not plan.is_active:
-        return {"error": "invalid plan"}
+        raise HTTPException(status_code=400, detail="invalid plan")
+
+    # Here you'd call your payment processor using body.payment_method_id
+    # For now, assume payment succeeds and create the subscription
     sub = UserSubscription(user_id=current_user.id, plan_id=plan.id, status="active")
     db.add(sub)
     db.commit()
-    return {"status": "subscribed", "plan": plan.name}
+    db.refresh(sub)
+    return SubscribeOut(subscription_id=str(sub.id), status=sub.status)
 
 
 @router.post("/cancel")
