@@ -15,106 +15,161 @@ def list_courses(
     search: Optional[str] = Query(None, description="Search keyword"),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Course)
+    try:
+        query = db.query(Course)
 
-    if status and status != "all":
-        query = query.filter(Course.status == status)
+        if status and status != "all":
+            query = query.filter(Course.status == status)
 
-    if search:
-        query = query.filter(Course.title.ilike(f"%{search}%"))
+        if search:
+            query = query.filter(Course.title.ilike(f"%{search}%"))
 
-    courses = query.all()
-    return courses
+        courses = query.all()
+        return courses
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )
     
 @router.post("", response_model=CourseOut)
 def create_course(course_in: CourseCreate, db: Session = Depends(get_db)):
-    # check category exists if category_id is provided and not 0
-    category = None
-    if course_in.category_id and course_in.category_id > 0:
-        category = db.query(CourseCategory).filter(CourseCategory.id == course_in.category_id).first()
-        if not category:
-            raise HTTPException(status_code=404, detail="Category not found")
-    elif course_in.category_id == 0:
-        # Set category_id to None if it's 0
-        course_data = course_in.model_dump()
-        course_data['category_id'] = None
-    else:
-        course_data = course_in.model_dump()
+    try:
+        # check category exists if category_id is provided and not 0
+        category = None
+        if course_in.category_id and course_in.category_id > 0:
+            category = db.query(CourseCategory).filter(CourseCategory.id == course_in.category_id).first()
+            if not category:
+                raise HTTPException(status_code=404, detail="Category not found")
+        elif course_in.category_id == 0:
+            # Set category_id to None if it's 0
+            course_data = course_in.model_dump()
+            course_data['category_id'] = None
+        else:
+            course_data = course_in.model_dump()
 
-    # create course instance
-    if course_in.category_id == 0:
-        course = Course(**course_data)
-    else:
-        course = Course(**course_in.model_dump())
-    
-    db.add(course)
-    db.commit()
-    db.refresh(course)
+        # create course instance
+        if course_in.category_id == 0:
+            course = Course(**course_data)
+        else:
+            course = Course(**course_in.model_dump())
+        
+        db.add(course)
+        db.commit()
+        db.refresh(course)
 
-    # attach category_name dynamically
-    course.category_name = category.name if category else None
+        # attach category_name dynamically
+        course.category_name = category.name if category else None
 
-    return course
+        return course
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )
 
 @router.get("/{course_id}", response_model=CourseOut)
 def get_course(course_id: int, db: Session = Depends(get_db)):
-    course = (
-        db.query(Course)
-        .filter(Course.id == course_id)
-        .first()
-    )
+    try:
+        course = (
+            db.query(Course)
+            .filter(Course.id == course_id)
+            .first()
+        )
 
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
 
-    # Attach category name dynamically if relationship is not joined
-    if course.category_id:
-        category = db.query(CourseCategory).filter(CourseCategory.id == course.category_id).first()
-        course.category_name = category.name if category else None
-    else:
-        course.category_name = None
+        # Attach category name dynamically if relationship is not joined
+        if course.category_id:
+            category = db.query(CourseCategory).filter(CourseCategory.id == course.category_id).first()
+            course.category_name = category.name if category else None
+        else:
+            course.category_name = None
 
-    return course
+        return course
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )
 
 @router.put("/{course_id}", response_model=CourseOut)
 def update_course(course_id: int, course_in: CourseUpdate, db: Session = Depends(get_db)):
-    course = db.query(Course).filter(Course.id == course_id).first()
+    try:
+        course = db.query(Course).filter(Course.id == course_id).first()
 
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
 
-    update_data = course_in.model_dump(exclude_unset=True)
-    # Handle category_id == 0 as "no category"
-    if "category_id" in update_data and update_data["category_id"] == 0:
-        update_data["category_id"] = None
+        update_data = course_in.model_dump(exclude_unset=True)
+        # Handle category_id == 0 as "no category"
+        if "category_id" in update_data and update_data["category_id"] == 0:
+            update_data["category_id"] = None
 
-    for field, value in update_data.items():
-        setattr(course, field, value)
+        for field, value in update_data.items():
+            setattr(course, field, value)
 
-    # Update timestamp
-    course.updated_at = datetime.utcnow()
+        # Update timestamp
+        course.updated_at = datetime.utcnow()
 
-    db.add(course)
-    db.commit()
-    db.refresh(course)
+        db.add(course)
+        db.commit()
+        db.refresh(course)
 
-    # Attach category name
-    if course.category_id:
-        category = db.query(CourseCategory).filter(CourseCategory.id == course.category_id).first()
-        course.category_name = category.name if category else None
-    else:
-        course.category_name = None
+        # Attach category name
+        if course.category_id:
+            category = db.query(CourseCategory).filter(CourseCategory.id == course.category_id).first()
+            course.category_name = category.name if category else None
+        else:
+            course.category_name = None
 
-    return course
+        return course
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )
 
 @router.delete("/{course_id}")
 def delete_course(course_id: int, db: Session = Depends(get_db)):
-    course = db.query(Course).filter(Course.id == course_id).first()
+    try:
+        course = db.query(Course).filter(Course.id == course_id).first()
 
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
 
-    db.delete(course)
-    db.commit()
+        db.delete(course)
+        db.commit()
 
-    return {"message": f"Course with id {course_id} deleted successfully"}
+        return {"message": f"Course with id {course_id} deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi.security import OAuth2PasswordBearer
@@ -8,6 +8,7 @@ from jose import jwt, JWTError
 
 from app.db.deps import get_db
 from app.models.user import User
+from app.models.token import PasswordResetToken
 from app.schemas.user import ResetPassword, UserCreate, AuthResponse, Token, TokenPayload, LoginRequest, PasswordResetConfirm
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.core.config import settings
@@ -66,13 +67,32 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="認証失敗"
         )
+
+    # ユーザーの last_login_at を更新
     db.execute(
         text("UPDATE users SET last_login_at = :ts, email_verified = true WHERE id = :id"),
         {"ts": datetime.now(tz=timezone.utc), "id": user.id},
     )
     db.commit()
     db.refresh(user)
+
+    # アクセストークン生成
     token = create_access_token(subject=str(user.id))
+
+    # Token を DB に保存
+    expires_minutes = settings.access_token_expire_minutes
+    expire_at = datetime.now(tz=timezone.utc) + timedelta(minutes=expires_minutes)
+
+    db_token = PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=expire_at,
+    )
+    db.add(db_token)
+    db.commit()
+    db.refresh(db_token)
+
+    # レスポンス
     return AuthResponse(user=user, token=token)
 
 
@@ -81,41 +101,45 @@ def logout():
     return {"message": "ログアウト成功"}
 
 @router.post("/password/reset")
-def password_reset_request(payload: ResetPassword):
-    return {"message": "If the email exists, a reset link was sent."}
+def password_reset_request(payload: ResetPassword, db: Session = Depends(get_db)):
+    # Try to find user by email
+    user = db.query(User).filter(User.email == payload.email).first()
 
-# @router.post("/password/reset/confirm", status_code=200)
-# def reset_password_confirm(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
-#     reset_entry = (
-#         db.query(PasswordResetToken)
-#         .filter(
-#             PasswordResetToken.token == payload.token,
-#             PasswordResetToken.expires_at > datetime.now(timezone.utc),
-#             PasswordResetToken.used == False
-#         )
-#         .first()
-#     )
-#     if not reset_entry:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Invalid or expired reset token"
-#         )
+    if user:
+        return {"message": "リセットメール送信成功"}
+    else:
+        return {"message": "メールアドレスが存在しません"}
 
-#     # 2. Fetch the user
-#     user = db.query(User).filter(User.id == reset_entry.user_id).first()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
+@router.post("/password/reset/confirm", status_code=200)
+def reset_password_confirm(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
+    reset_entry = (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.token == payload.token,
+            PasswordResetToken.expires_at > datetime.now(timezone.utc),
+        )
+        .first()
+    )
+    if not reset_entry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
+    expires_minutes = settings.access_token_expire_minutes
+    reset_entry.expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
 
-#     # 3. Update password
-#     user.password_hash = get_password_hash(payload.new_password)
-#     user.updated_at = datetime.now(timezone.utc)
+    # 2. Fetch the user
+    user = db.query(User).filter(User.id == reset_entry.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-#     # 4. Mark token as used
-#     reset_entry.used = True
+    # 3. Update password
+    user.password_hash = get_password_hash(payload.new_password)
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(reset_entry)
 
-#     db.commit()
-
-#     return {"message": "Password successfully reset"}
+    return {"message": "Password successfully reset"}
 
 
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(reuseable_oauth2)) -> User:
@@ -128,3 +152,23 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(reuseab
     if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+# def create_password_reset_token(db: Session, user: User) -> PasswordResetToken:
+#     # Token expiry (example: 30 minutes)
+#     expires_minutes = settings.access_token_expire_minutes
+#     expire_at = datetime.now(tz=timezone.utc) + timedelta(minutes=expires_minutes)
+
+#     # Generate token string (JWT)
+#     token = create_access_token(subject=str(user.id), expires_minutes=expires_minutes)
+
+#     # Save into DB
+#     db_token = PasswordResetToken(
+#         user_id=user.id,
+#         token=token,
+#         expires_at=expire_at,
+#     )
+#     db.add(db_token)
+#     db.commit()
+#     db.refresh(db_token)
+
+#     return db_token

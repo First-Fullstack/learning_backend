@@ -27,45 +27,56 @@ def list_users(
     limit: int = Query(20, ge=1, le=100, description="1ページあたりの件数"),
     db: Session = Depends(get_db),
 ):
-    """
-    管理者がユーザー一覧を取得します
-    """
-    # --- Build base query ---
-    query = db.query(User)
+    try:
+        """
+        管理者がユーザー一覧を取得します
+        """
+        # --- Build base query ---
+        query = db.query(User)
 
-    # Optional search
-    if search:
-        query = query.filter(User.name.ilike(f"%{search}%"))
+        # Optional search
+        if search:
+            query = query.filter(User.name.ilike(f"%{search}%"))
 
-    # Optional status filter
-    if status != "all":
-        if status == "active":
-            query = query.filter(User.is_active.is_(True))
-        elif status == "inactive":
-            query = query.filter(User.is_active.is_(False))
-        elif status == "cancelled":
-            # Note: is_cancelled field doesn't exist in User model, using is_active=False as fallback
-            query = query.filter(User.is_active.is_(False))
+        # Optional status filter
+        if status != "all":
+            if status == "active":
+                query = query.filter(User.is_active.is_(True))
+            elif status == "inactive":
+                query = query.filter(User.is_active.is_(False))
+            elif status == "cancelled":
+                # Note: is_cancelled field doesn't exist in User model, using is_active=False as fallback
+                query = query.filter(User.is_active.is_(False))
 
-    # Pagination
-    total_count = query.count()
-    users = (
-        query.order_by(User.id.desc())
-        .offset((page - 1) * limit)
-        .limit(limit)
-        .all()
-    )
+        # Pagination
+        total_count = query.count()
+        users = (
+            query.order_by(User.id.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
 
-    total_pages = (total_count + limit - 1) // limit
+        total_pages = (total_count + limit - 1) // limit
 
-    return UserListResponse(
-        users=users,
-        pagination=PaginationMeta(
-            current_page=page,
-            total_pages=total_pages,
-            total_count=total_count,
-        ),
-    )
+        return UserListResponse(
+            users=users,
+            pagination=PaginationMeta(
+                current_page=page,
+                total_pages=total_pages,
+                total_count=total_count,
+            ),
+        )
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )
 
 @router.get("/{user_id}", response_model=UserOut)
 def get_user_detail(
@@ -73,14 +84,25 @@ def get_user_detail(
     db: Session = Depends(get_db),
     # current_admin: User = Depends(get_current_admin_user),  # or your admin dependency
 ):
-    """
-    管理者が特定ユーザーの詳細情報を取得します
-    """
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        """
+        管理者が特定ユーザーの詳細情報を取得します
+        """
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-    return user  # SQLAlchemy ORM object; FastAPI + Pydantic will serialize
+        return user  # SQLAlchemy ORM object; FastAPI + Pydantic will serialize
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )
 
 @router.put("/{user_id}", response_model=UserOut)
 def update_user(
@@ -89,30 +111,52 @@ def update_user(
     db: Session = Depends(get_db),
     # current_admin: User = Depends(get_current_admin)   # if you have admin auth
 ):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-    if payload.name is not None:
-        user.name = payload.name
-    if payload.email is not None:
-        user.email = payload.email
-    if payload.is_active is not None:
-        user.is_active = payload.is_active
+        if payload.name is not None:
+            user.name = payload.name
+        if payload.email is not None:
+            user.email = payload.email
+        if payload.is_active is not None:
+            user.is_active = payload.is_active
 
-    db.commit()
-    db.refresh(user)
-    return user
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )
 
 @router.delete("/{user_id}", status_code=204)
 def delete_user(user_id: int, db: Session = Depends(get_db)):
-    """
-    Permanently remove a user record from the database.
-    """
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        """
+        Permanently remove a user record from the database.
+        """
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-    db.delete(user)    # 🗑 actually remove from DB
-    db.commit()
-    return None        # 204 No Content → no response body
+        db.delete(user)    # 🗑 actually remove from DB
+        db.commit()
+        return None        # 204 No Content → no response body
+    except Exception as e:
+        db.rollback()
+        # Raise HTTP 400 or 500 with a JSON message
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "status": "failed",
+                "error": str(e),
+            }
+        )
