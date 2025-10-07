@@ -33,7 +33,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)) -> AuthResponse
             status_code=400,
             detail={
                 "error": 400,
-                "message": "Email already registered",
+                "message": "メールアドレスはすでに登録されています",
                 "details": {}
             }
         )
@@ -54,7 +54,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)) -> AuthResponse
             status_code=500,
             detail={
                 "error": 500,
-                "message": "Database error",
+                "message": "サーバーエラー",
                 "details": {"exception": str(e)}
             }
         )

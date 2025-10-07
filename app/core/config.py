@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     database_url: str | None = None
 
     # CORS
-    cors_allow_origins: List[AnyHttpUrl] = []
+    cors_allow_origins: List[AnyHttpUrl] = ['http://localhost:5173']
 
     # Storage/Payments (stubs)
     aws_access_key_id: str | None = None

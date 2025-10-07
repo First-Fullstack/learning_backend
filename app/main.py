@@ -8,15 +8,16 @@ from app.api.v1.routes import auth as auth_routes
 app = FastAPI(title="Learning Platform API", version="1.0.0")
 
 
-origins = [
-    "http://localhost:5173",
-    "localhost:5173"
-]
+# origins = [
+#     "http://localhost:5173"
+# ]
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allow_origins,
+    # allow_origins=origins,
+    allow_origins=["*"],
+    # allow_origins=[str(origin) for origin in settings.cors_allow_origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
