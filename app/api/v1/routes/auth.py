@@ -104,11 +104,17 @@ def logout():
 def password_reset_request(payload: ResetPassword, db: Session = Depends(get_db)):
     # Try to find user by email
     user = db.query(User).filter(User.email == payload.email).first()
-
     if user:
         return {"message": "リセットメール送信成功"}
     else:
-        return {"message": "メールアドレスが存在しません"}
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": 400,
+                "message": "メールアドレスが存在しません",
+                "details": {}
+            }
+        )
 
 @router.post("/password/reset/confirm", status_code=200)
 def reset_password_confirm(payload: PasswordResetConfirm, db: Session = Depends(get_db)):

@@ -127,7 +127,7 @@ def get_course(course_id: int, db: Session = Depends(get_db), current_user: User
         raise HTTPException(
             status_code=400,
             detail={
-                "status": "failed",
+                "status": "失敗した",
                 "error": str(e),
             }
         )
