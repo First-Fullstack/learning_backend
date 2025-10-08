@@ -2,7 +2,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import text
+from sqlalchemy import false, text
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 
@@ -21,7 +21,7 @@ reuseable_oauth2 = OAuth2PasswordBearer(tokenUrl="/v1/auth/login")
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user: User | None = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(password, user.password_hash):
-        return None
+        return False
     return user
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
