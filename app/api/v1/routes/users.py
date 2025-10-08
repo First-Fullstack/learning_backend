@@ -87,7 +87,13 @@ def update_password(
     try:
         # Verify current password
         if not verify_password(payload.current_password, current_user.password_hash):
-            return {"error": "Current password is incorrect."}, 400
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
         # Update to new password
         current_user.password_hash = get_password_hash(payload.new_password)
         db.add(current_user)

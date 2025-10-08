@@ -147,7 +147,6 @@ def reset_password_confirm(payload: PasswordResetConfirm, db: Session = Depends(
 
     return {"message": "Password successfully reset"}
 
-
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(reuseable_oauth2)) -> User:
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
